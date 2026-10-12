@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="x-groc-version" content="v1.2">
+<meta name="x-groc-version" content="v1.3">
 <meta name="robots" content="noindex">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Groceries">
@@ -93,7 +93,7 @@ button{font:inherit;color:inherit;cursor:pointer}
 <div class="toast" id="toast"><span id="toastTxt"></span><button class="btn" id="toastBtn"></button></div>
 
 <script>
-var VERSION = 'v1.2';
+var VERSION = 'v1.3';
 var API_ROOT = 'https://api.jobhubgo.com/api/grocery';
 var DAY = 86400000;
 var STORES = ['Walmart', 'Target', "Sam's", 'Other'];
@@ -724,14 +724,18 @@ function paintMail() {
   if (!m.connected) {
     if (isKid()) { el.innerHTML = '<div class="empty">A parent can connect this.</div>'; return; }
     h += '<p style="margin:0 0 8px">The list reads your Walmart, Target and Sam\'s emails and learns what you buy, how often, and what you paid. It opens no other email.</p>' +
-      '<ol class="steps"><li>In the Yahoo Mail app or at <b>login.yahoo.com</b>, open <b>Account info</b>, then <b>Account security</b>.</li>' +
-      '<li>Tap <b>Generate app password</b> (it may say "Other app"), name it Groceries.</li>' +
-      '<li>Copy the 16 letters it shows and paste them below.</li></ol>' +
+      '<p style="margin:12px 0 6px"><b>First, get a code from Yahoo.</b> It is not your Yahoo password and you don\'t make it up. Yahoo makes it for you.</p>' +
+      '<ol class="steps"><li>Tap <b>Open Yahoo security</b> below and sign in if it asks.</li>' +
+      '<li>On the <b>Security</b> tab, scroll down to <b>External connections</b>, then <b>App passwords</b>.</li>' +
+      '<li>Tap <b>Create app password</b>, name it <b>Groceries</b>, and tap Create.</li>' +
+      '<li>Yahoo shows a 16 character code. Tap Copy, then come back to this page.</li></ol>' +
+      '<p style="margin:10px 0 14px"><a class="btn" style="text-decoration:none;display:inline-block" target="_blank" rel="noopener" href="https://login.yahoo.com/myaccount/security">Open Yahoo security ↗</a></p>' +
+      '<p style="margin:0 0 4px"><b>Then paste it here.</b></p>' +
       '<div class="f"><label>Yahoo email</label><input id="mEmail" type="email" autocomplete="email" placeholder="you@yahoo.com"></div>' +
-      '<div class="f"><label>App password (not your normal password)</label><input id="mPass" type="password" autocomplete="off" placeholder="16 letters"></div>' +
+      '<div class="f"><label>The 16 character code from Yahoo</label><input id="mPass" type="password" autocomplete="off" placeholder="Paste the code"></div>' +
       '<p class="hint" id="mErr" style="color:var(--warn)"></p>' +
       '<button class="btn solid" id="mGo" onclick="connectMail()">Connect</button>' +
-      '<p class="hint">You can turn it off here, or delete the app password in Yahoo, any time.</p>';
+      '<p class="hint">You can turn it off here any time, or delete "Groceries" from App passwords in Yahoo and it stops working right away.</p>';
   } else {
     var st = m.status === 'bad-login' ? '<b style="color:var(--warn)">Yahoo stopped taking the app password.</b> Disconnect and connect again with a new one.'
       : m.status === 'error' ? 'Couldn\'t reach Yahoo last time, it will try again.'

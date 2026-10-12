@@ -1,0 +1,697 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="x-groc-version" content="v1.0">
+<meta name="robots" content="noindex">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Groceries">
+<meta name="theme-color" content="#1f8a4c">
+<title>Groceries</title>
+<style>
+:root{--bg:#f4f5f2;--card:#fff;--ink:#1d211c;--sub:#6b7268;--line:#e3e6e0;--acc:#1f8a4c;--accsoft:#e3f3e9;--warn:#c25b12;--warnsoft:#fcefe3;--kid:#7a4fc0;--kidsoft:#efe8fa}
+@media (prefers-color-scheme:dark){:root{--bg:#121411;--card:#1c1f1b;--ink:#eef0ec;--sub:#9aa196;--line:#2d322b;--acc:#45b673;--accsoft:#1d3325;--warn:#f0954a;--warnsoft:#3a2716;--kid:#b89af0;--kidsoft:#2c2440}}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;background:var(--bg);color:var(--ink);font:17px/1.35 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif}
+body{padding:calc(env(safe-area-inset-top) + 10px) 14px calc(env(safe-area-inset-bottom) + 86px)}
+h1{font-size:28px;margin:4px 2px 10px;display:flex;align-items:center;gap:8px}
+h1 .me{margin-left:auto;font-size:14px;font-weight:600;color:var(--sub);background:var(--card);border:1px solid var(--line);border-radius:20px;padding:5px 12px}
+h2{font-size:15px;text-transform:uppercase;letter-spacing:.04em;color:var(--sub);margin:22px 4px 8px;display:flex;align-items:center;gap:8px}
+h2 .r{margin-left:auto;text-transform:none;letter-spacing:0}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;overflow:hidden}
+.row{display:flex;align-items:center;gap:12px;padding:12px 14px;border-top:1px solid var(--line);min-height:56px}
+.row:first-child{border-top:0}
+.row .main{flex:1;min-width:0}
+.row .nm{font-weight:600;word-break:break-word}
+.row .sb{font-size:14px;color:var(--sub);margin-top:2px}
+.chk{width:30px;height:30px;border-radius:50%;border:2px solid var(--acc);flex:none;background:none;padding:0}
+.chk.on{background:var(--acc)}
+button{font:inherit;color:inherit;cursor:pointer}
+.btn{border:0;border-radius:10px;padding:9px 14px;font-weight:600;background:var(--accsoft);color:var(--acc);white-space:nowrap}
+.btn.solid{background:var(--acc);color:#fff}
+.btn.ghost{background:none;color:var(--sub);padding:9px 8px}
+.btn.warn{background:var(--warnsoft);color:var(--warn)}
+.btn.sm{padding:6px 11px;font-size:15px}
+.add{display:flex;gap:8px;margin-bottom:4px}
+.add input{flex:1;min-width:0;font:inherit;font-size:18px;padding:13px 14px;border-radius:12px;border:1px solid var(--line);background:var(--card);color:var(--ink)}
+.add .btn{font-size:18px;padding:0 18px}
+.hint{font-size:14px;color:var(--sub);margin:6px 4px}
+.empty{padding:18px 14px;color:var(--sub);text-align:center}
+.tag{display:inline-block;font-size:12px;font-weight:700;border-radius:6px;padding:1px 6px;margin-left:6px;vertical-align:1px}
+.tag.kid{background:var(--kidsoft);color:var(--kid)}
+.tag.due{background:var(--warnsoft);color:var(--warn)}
+.tabs{position:fixed;left:0;right:0;bottom:0;display:flex;background:var(--card);border-top:1px solid var(--line);padding-bottom:env(safe-area-inset-bottom);z-index:5}
+.tabs button{flex:1;border:0;background:none;padding:10px 0 8px;font-size:13px;color:var(--sub);display:flex;flex-direction:column;align-items:center;gap:2px}
+.tabs button b{font-size:22px;font-weight:400}
+.tabs button.on{color:var(--acc);font-weight:700}
+.scrim{position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:10;display:none}
+.sheet{position:fixed;left:0;right:0;bottom:0;max-height:92vh;overflow:auto;background:var(--bg);border-radius:18px 18px 0 0;z-index:11;padding:16px 16px calc(env(safe-area-inset-bottom) + 20px);display:none;-webkit-overflow-scrolling:touch}
+.sheet.open,.scrim.open{display:block}
+.sheet h3{margin:0 0 12px;font-size:22px;display:flex;align-items:center;gap:8px}
+.sheet h3 .x{margin-left:auto}
+.f{margin:12px 0}
+.f label{display:block;font-size:14px;font-weight:600;color:var(--sub);margin:0 2px 5px}
+.f input,.f select,.f textarea{width:100%;font:inherit;padding:11px 12px;border-radius:10px;border:1px solid var(--line);background:var(--card);color:var(--ink)}
+.f textarea{min-height:150px}
+.pair{display:flex;gap:8px;align-items:center}
+.pair input{flex:1;min-width:0}
+.pair span{color:var(--sub);white-space:nowrap}
+.big{font-size:17px;background:var(--accsoft);color:var(--ink);border-radius:12px;padding:12px 14px;margin:10px 0}
+.links{display:flex;gap:8px;flex-wrap:wrap}
+.links a{font-size:15px;font-weight:600;color:var(--acc);text-decoration:none;background:var(--card);border:1px solid var(--line);border-radius:10px;padding:8px 12px}
+.log{font-size:14px;color:var(--sub);margin:0;padding-left:18px}
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.chip{border:1px solid var(--line);background:var(--card);border-radius:22px;padding:9px 16px;font-weight:600}
+.chip.on{background:var(--acc);color:#fff;border-color:var(--acc)}
+.toast{position:fixed;left:14px;right:14px;bottom:calc(env(safe-area-inset-bottom) + 78px);background:var(--ink);color:var(--bg);border-radius:12px;padding:12px 14px;z-index:20;display:none;align-items:center;gap:10px;font-size:16px}
+.toast.open{display:flex}
+.toast .btn{margin-left:auto;background:none;color:var(--bg);text-decoration:underline;padding:0 4px}
+.search{width:100%;font:inherit;padding:10px 12px;border-radius:10px;border:1px solid var(--line);background:var(--card);color:var(--ink);margin-bottom:8px}
+.ing{display:flex;align-items:center;gap:12px;padding:10px 14px;border-top:1px solid var(--line)}
+.ing:first-child{border-top:0}
+.ing input{width:24px;height:24px;flex:none;accent-color:var(--acc)}
+.off{opacity:.55}
+.gate{max-width:420px;margin:60px auto;text-align:center}
+.gate p{color:var(--sub)}
+.steps{margin:8px 0 0;padding-left:22px}
+.steps li{margin:6px 0}
+.ver{font-size:12px;color:var(--sub);text-align:center;margin-top:24px}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<div class="tabs" id="tabs" style="display:none">
+  <button data-tab="list" class="on"><b>🛒</b>List</button>
+  <button data-tab="recipes"><b>🍳</b>Recipes</button>
+  <button data-tab="settings"><b>⚙️</b>Settings</button>
+</div>
+<div class="scrim" id="scrim"></div>
+<div class="sheet" id="sheet"></div>
+<div class="toast" id="toast"><span id="toastTxt"></span><button class="btn" id="toastBtn"></button></div>
+
+<script>
+var VERSION = 'v1.0';
+var API_ROOT = 'https://api.jobhubgo.com/api/grocery';
+var DAY = 86400000;
+var STORES = ['Walmart', 'Target', "Sam's", 'Other'];
+
+function hashArg(k) {
+  var m = (location.hash || '').match(new RegExp('[#&]' + k + '=([^&]+)'));
+  return m ? decodeURIComponent(m[1]) : '';
+}
+var HH = (hashArg('h') || '').toLowerCase().replace(/[^a-z0-9_-]/g, '');
+var API = API_ROOT + '/' + HH;
+var CACHE = 'groc-' + HH, QKEY = 'groc-q-' + HH, MEKEY = 'groc-me-' + HH;
+
+var items = {};   // id -> { id, kind, data, updatedAt, deleted }
+var since = 0;
+var queue = [];   // ids waiting to be PUT
+var tab = 'list';
+var me = '';
+var sheetOpen = false;
+var lastType = 0;
+var searchText = '';
+var showAll = false;
+
+function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
+function rid() { return Math.random().toString(36).slice(2, 10); }
+function fmtDay(ms) { return new Date(ms).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }); }
+function $(id) { return document.getElementById(id); }
+
+// Matching key, the same rule as normName on the server (lib/groceryVoice.ts):
+// "Eggs" = "egg", "Berries" = "berry". Used only to spot an item already on
+// the list; new items are always made by the server's /say.
+function normName(s) {
+  var t = String(s || '').toLowerCase().replace(/[’]/g, "'").replace(/[^a-z0-9&' ]+/g, ' ').replace(/\s+/g, ' ').trim();
+  var w = t.split(' '), l = w[w.length - 1] || '';
+  if (l.length > 3) {
+    if (/ies$/.test(l)) l = l.slice(0, -3) + 'y';
+    else if (/(ches|shes|xes|sses|oes)$/.test(l)) l = l.slice(0, -2);
+    else if (/[^s]s$/.test(l)) l = l.slice(0, -1);
+  }
+  w[w.length - 1] = l;
+  return w.join(' ');
+}
+
+/* ---------- storage + sync ---------- */
+function saveLocal() {
+  try { localStorage.setItem(CACHE, JSON.stringify({ items: items, since: since })); localStorage.setItem(QKEY, JSON.stringify(queue)); } catch (e) {}
+}
+function loadLocal() {
+  try {
+    var c = JSON.parse(localStorage.getItem(CACHE) || 'null');
+    if (c) { items = c.items || {}; since = c.since || 0; }
+    queue = JSON.parse(localStorage.getItem(QKEY) || '[]');
+  } catch (e) {}
+  me = localStorage.getItem(MEKEY) || '';
+}
+function all(kind) {
+  var out = [];
+  for (var id in items) { var x = items[id]; if (x.kind === kind && !x.deleted) out.push(x); }
+  return out;
+}
+function busy() {
+  var a = document.activeElement;
+  return sheetOpen || Date.now() - lastType < 3000 || (a && (a.tagName === 'INPUT' || a.tagName === 'TEXTAREA' || a.tagName === 'SELECT'));
+}
+
+function put(id, kind, data, deleted) {
+  var x = { id: id, kind: kind, data: data, updatedAt: Date.now(), deleted: !!deleted };
+  items[id] = x;
+  if (queue.indexOf(id) < 0) queue.push(id);
+  saveLocal();
+  flush();
+  return x;
+}
+
+var flushing = false;
+function flush() {
+  if (flushing || !queue.length || !HH) return;
+  flushing = true;
+  var id = queue[0], x = items[id];
+  if (!x) { queue.shift(); flushing = false; saveLocal(); return flush(); }
+  fetch(API + '/' + encodeURIComponent(id), {
+    method: 'PUT', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ kind: x.kind, data: x.data, updatedAt: x.updatedAt, deleted: x.deleted })
+  }).then(function (r) { return r.json(); }).then(function (j) {
+    if (j && j.stale && j.item) items[j.item.id] = j.item;
+    if (j && (j.ok || j.stale)) queue.shift();
+    else if (j && j.error) queue.shift(); // a bad row must not block the rest forever
+    flushing = false; saveLocal();
+    if (queue.length) flush();
+  }).catch(function () { flushing = false; });
+}
+
+function pull() {
+  if (!HH) return Promise.resolve();
+  return fetch(API + '?since=' + Math.max(0, since - 15000), { cache: 'no-store' })
+    .then(function (r) { return r.json(); })
+    .then(function (j) {
+      if (!j || !j.items) return;
+      var changed = false;
+      j.items.forEach(function (x) {
+        var cur = items[x.id];
+        if (queue.indexOf(x.id) >= 0 && cur && cur.updatedAt > x.updatedAt) return;
+        if (!cur || x.updatedAt >= cur.updatedAt) {
+          if (!cur || JSON.stringify(cur) !== JSON.stringify(x)) changed = true;
+          items[x.id] = x;
+        }
+      });
+      since = j.now || since;
+      saveLocal();
+      flush();
+      if (changed && !busy()) render();
+    }).catch(function () {});
+}
+
+/* ---------- people ---------- */
+function people() { return all('person').sort(function (a, b) { return a.data.name.localeCompare(b.data.name); }); }
+function personByName(n) { n = String(n || '').toLowerCase(); return people().filter(function (p) { return p.data.name.toLowerCase() === n; })[0]; }
+function isKid() { var p = personByName(me); return !!(p && p.data.role === 'kid'); }
+function addPerson(name, role) {
+  name = String(name || '').trim();
+  if (!name) return null;
+  var p = personByName(name);
+  if (p) return p;
+  return put('p-' + normName(name).replace(/[^a-z0-9]+/g, '-'), 'person', { name: name, role: role || 'parent' });
+}
+
+/* ---------- how long a pack lasts ---------- */
+function lifeFromRate(pack, perWeek) {
+  pack = Number(pack); perWeek = Number(perWeek);
+  if (!(pack > 0) || !(perWeek > 0)) return null;
+  return Math.round(pack / perWeek * 7 * 10) / 10;
+}
+function daysLeft(d) {
+  if (!d.lifeDays || !d.lastBought) return null;
+  return (d.lastBought + d.lifeDays * DAY - Date.now()) / DAY;
+}
+function lastsText(d) {
+  if (!d.lifeDays) return '';
+  var days = Math.round(d.lifeDays);
+  var t = days >= 14 && days % 7 === 0 ? (days / 7) + ' weeks' : days === 7 ? '1 week' : days + ' day' + (days === 1 ? '' : 's');
+  return 'a ' + (d.pack ? d.pack + (d.unit ? ' ' + d.unit : '') + ' ' : '') + 'pack lasts about ' + t;
+}
+function leftText(n) {
+  if (n == null) return '';
+  if (n <= 0.5) return 'probably out now';
+  var d = Math.round(n);
+  return 'out in about ' + d + ' day' + (d === 1 ? '' : 's');
+}
+
+/* ---------- Siri / add box ---------- */
+function sayIt(body) {
+  body.who = me || 'Someone';
+  return fetch(API + '/say', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
+    .then(function (r) { return r.json(); })
+    .then(function (j) { toast(j.said || 'Saved.'); return pull(); })
+    .catch(function () { toast("Couldn't reach the list. Check your signal and try again."); });
+}
+
+/* ---------- toast ---------- */
+var toastT = 0;
+function toast(msg, btn, fn) {
+  $('toastTxt').textContent = msg;
+  $('toastBtn').style.display = btn ? '' : 'none';
+  $('toastBtn').textContent = btn || '';
+  $('toastBtn').onclick = function () { $('toast').classList.remove('open'); if (fn) fn(); };
+  $('toast').classList.add('open');
+  clearTimeout(toastT);
+  toastT = setTimeout(function () { $('toast').classList.remove('open'); }, btn ? 6000 : 3500);
+}
+
+/* ---------- render ---------- */
+function render() {
+  if (!HH) return renderGate();
+  $('tabs').style.display = '';
+  [].forEach.call(document.querySelectorAll('.tabs button'), function (b) { b.classList.toggle('on', b.dataset.tab === tab); });
+  if (!me) return renderWho();
+  var keepAdd = $('addIn') ? $('addIn').value : '';
+  var y = window.scrollY;
+  if (tab === 'list') renderList();
+  else if (tab === 'recipes') renderRecipes();
+  else renderSettings();
+  if ($('addIn')) $('addIn').value = keepAdd;
+  window.scrollTo(0, y);
+}
+
+function header(title) {
+  return '<h1>' + title + '<button class="me" onclick="pickMe()">' + esc(me) + '</button></h1>';
+}
+
+function renderGate() {
+  $('tabs').style.display = 'none';
+  $('app').innerHTML = '<div class="gate"><h1 style="justify-content:center">🛒 Groceries</h1>' +
+    '<p>This page needs your family\'s link. Ask whoever set it up to send it to you.</p>' +
+    '<p style="margin-top:30px"><button class="btn" onclick="newList()">Start a new list</button></p></div>';
+}
+function newList() {
+  var k = Math.random().toString(36).slice(2, 8) + Math.random().toString(36).slice(2, 8);
+  location.hash = 'h=' + k;
+  location.reload();
+}
+
+function renderWho() {
+  var ps = people();
+  $('app').innerHTML = '<h1>🛒 Groceries</h1><h2>Who\'s this?</h2>' +
+    '<div class="chips" style="margin:0 2px">' + ps.map(function (p) {
+      return '<button class="chip" onclick="setMe(\'' + esc(p.data.name).replace(/'/g, "\\'") + '\')">' + esc(p.data.name) + '</button>';
+    }).join('') + '</div>' +
+    '<div class="f" style="margin-top:22px"><label>' + (ps.length ? 'Someone new?' : 'Your first name') + '</label>' +
+    '<div class="pair"><input id="whoIn" placeholder="First name" autocomplete="given-name"><button class="btn solid" onclick="newMe()">That\'s me</button></div></div>' +
+    '<p class="hint">Everyone in the family uses this same link. Your name shows on what you add.</p>';
+}
+function setMe(n) { me = n; localStorage.setItem(MEKEY, n); render(); }
+function newMe() {
+  var n = $('whoIn').value.trim();
+  if (!n) return;
+  addPerson(n, 'parent');
+  setMe(personByName(n).data.name);
+}
+function pickMe() { me = ''; localStorage.removeItem(MEKEY); render(); }
+
+function renderList() {
+  var its = all('item');
+  var on = its.filter(function (x) { return x.data.onList; });
+  var req = its.filter(function (x) { return !x.data.onList && x.data.requested; });
+  var due = its.filter(function (x) {
+    if (x.data.onList || x.data.requested) return false;
+    var n = daysLeft(x.data); return n != null && n <= 3;
+  }).sort(function (a, b) { return daysLeft(a.data) - daysLeft(b.data); });
+
+  var h = header('🛒 Groceries');
+  h += '<div class="add"><input id="addIn" placeholder="What are we out of?" enterkeyhint="done" autocomplete="off"><button class="btn solid" onclick="addTyped()">Add</button></div>';
+  h += '<p class="hint">Type a few at once: "ketchup, mustard and eggs". Or say "Hey Siri, Groceries".</p>';
+
+  if (req.length) {
+    h += '<h2>Asked for <span class="r"></span></h2><div class="card">' + req.map(function (x) {
+      var d = x.data;
+      return '<div class="row"><div class="main"><div class="nm">' + esc(d.name) + '<span class="tag kid">' + esc(d.requested.who) + '</span></div>' +
+        '<div class="sb">' + (d.note ? esc(d.note) + ' · ' : '') + 'asked ' + fmtDay(d.requested.at) + '</div></div>' +
+        (isKid() ? '<span class="sb">waiting</span>' :
+          '<button class="btn sm" onclick="approve(\'' + x.id + '\')">OK</button><button class="btn sm ghost" onclick="deny(\'' + x.id + '\')">No</button>') +
+        '</div>';
+    }).join('') + '</div>';
+  }
+
+  h += '<h2>On the list · ' + on.length + '</h2>';
+  if (!on.length) h += '<div class="card"><div class="empty">Nothing on the list. Add what you\'re out of above.</div></div>';
+  STORES.forEach(function (s) {
+    var g = on.filter(function (x) { return (STORES.indexOf(x.data.store) < 0 ? 'Other' : x.data.store) === s; })
+      .sort(function (a, b) { return a.data.name.localeCompare(b.data.name); });
+    if (!g.length) return;
+    h += '<h2>' + esc(s) + ' · ' + g.length + '<span class="r"><button class="btn sm" onclick="copyStore(\'' + esc(s).replace(/'/g, "\\'") + '\')">Copy</button></span></h2><div class="card">' +
+      g.map(function (x) {
+        var d = x.data, sub = [];
+        if (d.note) sub.push(esc(d.note));
+        if (d.listedBy) sub.push(esc(d.listedBy));
+        return '<div class="row"><button class="chk" onclick="bought(\'' + x.id + '\')" aria-label="Got it"></button>' +
+          '<div class="main" onclick="openItem(\'' + x.id + '\')"><div class="nm">' + esc(d.name) + '</div>' +
+          (sub.length ? '<div class="sb">' + sub.join(' · ') + '</div>' : '') + '</div></div>';
+      }).join('') + '</div>';
+  });
+
+  if (due.length) {
+    h += '<h2>Running out soon<span class="r"><button class="btn sm" onclick="addAllDue()">Add all</button></span></h2><div class="card">' +
+      due.map(function (x) {
+        var d = x.data;
+        return '<div class="row"><div class="main" onclick="openItem(\'' + x.id + '\')"><div class="nm">' + esc(d.name) + '<span class="tag due">' + leftText(daysLeft(d)) + '</span></div>' +
+          '<div class="sb">' + esc(lastsText(d)) + ' · bought ' + fmtDay(d.lastBought) + '</div></div>' +
+          '<button class="btn sm" onclick="addExisting(\'' + x.id + '\')">Add</button></div>';
+      }).join('') + '</div>';
+  }
+
+  var rest = its.filter(function (x) { return !x.data.onList; }).sort(function (a, b) { return a.data.name.localeCompare(b.data.name); });
+  h += '<h2>Everything we buy · ' + rest.length + '<span class="r"><button class="btn sm ghost" onclick="toggleAll()">' + (showAll ? 'Hide' : 'Show') + '</button></span></h2>';
+  if (showAll) {
+    h += '<input class="search" id="searchIn" placeholder="Search" value="' + esc(searchText) + '" oninput="searchText=this.value;lastType=Date.now();drawAll()">';
+    h += '<div class="card" id="allList"></div>';
+    h += '<p class="hint">Tap an item to set how fast you use it, like "a 12 pack, 6 a week".</p>';
+  }
+  $('app').innerHTML = h;
+  if (showAll) drawAll();
+  var inp = $('addIn');
+  inp.onkeydown = function (e) { lastType = Date.now(); if (e.key === 'Enter') { e.preventDefault(); addTyped(); } };
+}
+function toggleAll() { showAll = !showAll; render(); }
+function drawAll() {
+  var q = normName(searchText);
+  var rest = all('item').filter(function (x) { return !x.data.onList && (!q || normName(x.data.name).indexOf(q) >= 0); })
+    .sort(function (a, b) { return a.data.name.localeCompare(b.data.name); });
+  $('allList').innerHTML = rest.length ? rest.map(function (x) {
+    var d = x.data, n = daysLeft(d), sub = [];
+    if (d.lifeDays) sub.push(esc(lastsText(d)));
+    if (n != null) sub.push(n <= 0.5 ? 'probably out now' : 'next buy about ' + fmtDay(d.lastBought + d.lifeDays * DAY));
+    else if (d.lastBought) sub.push('bought ' + fmtDay(d.lastBought));
+    if (!d.lifeDays) sub.push('tap to set how fast you use it');
+    return '<div class="row"><div class="main" onclick="openItem(\'' + x.id + '\')"><div class="nm">' + esc(d.name) + '</div><div class="sb">' + sub.join(' · ') + '</div></div>' +
+      '<button class="btn sm" onclick="addExisting(\'' + x.id + '\')">+</button></div>';
+  }).join('') : '<div class="empty">' + (q ? 'Nothing matches.' : 'Things you add show up here after you buy them.') + '</div>';
+}
+
+function addTyped() {
+  var v = $('addIn').value.trim();
+  if (!v) return;
+  $('addIn').value = '';
+  $('addIn').blur();
+  sayIt({ text: v, mode: 'out' });
+}
+function addExisting(id) {
+  var x = items[id]; if (!x) return;
+  sayIt({ lines: [{ name: x.data.name, note: x.data.note || '' }], mode: 'listed' });
+}
+function addAllDue() {
+  var due = all('item').filter(function (x) { var n = daysLeft(x.data); return !x.data.onList && !x.data.requested && n != null && n <= 3; });
+  if (!due.length) return;
+  sayIt({ lines: due.map(function (x) { return { name: x.data.name }; }), mode: 'listed' });
+}
+function logIt(d, k, extra) {
+  var e = { k: k, at: Date.now(), who: me };
+  for (var p in extra || {}) e[p] = extra[p];
+  d.log = [e].concat(d.log || []).slice(0, 40);
+}
+function clone(o) { return JSON.parse(JSON.stringify(o)); }
+
+function bought(id) {
+  var x = items[id]; if (!x) return;
+  var before = clone(x.data);
+  var d = clone(x.data);
+  d.onList = false; d.requested = null; d.note = '';
+  d.lastBought = Date.now();
+  logIt(d, 'bought');
+  put(id, 'item', d);
+  render();
+  toast('Got ' + d.name + '.', 'Undo', function () { put(id, 'item', before); render(); });
+}
+function approve(id) {
+  var x = items[id]; if (!x) return;
+  sayIt({ lines: [{ name: x.data.name, note: x.data.note || '' }], mode: 'listed' });
+}
+function deny(id) {
+  var x = items[id]; if (!x) return;
+  var d = clone(x.data); d.requested = null; logIt(d, 'no');
+  put(id, 'item', d); render();
+}
+function copyStore(s) {
+  var lines = all('item').filter(function (x) { return x.data.onList && (STORES.indexOf(x.data.store) < 0 ? 'Other' : x.data.store) === s; })
+    .sort(function (a, b) { return a.data.name.localeCompare(b.data.name); })
+    .map(function (x) { return x.data.name + (x.data.note ? ' (' + x.data.note + ')' : ''); });
+  var t = lines.join('\n');
+  (navigator.clipboard ? navigator.clipboard.writeText(t) : Promise.reject()).then(function () {
+    toast('Copied ' + lines.length + ' for ' + s + '.');
+  }).catch(function () { prompt('Copy this:', t); });
+}
+
+/* ---------- item sheet ---------- */
+function openSheet(html) {
+  sheetOpen = true;
+  $('sheet').innerHTML = html;
+  $('sheet').scrollTop = 0;
+  $('sheet').classList.add('open'); $('scrim').classList.add('open');
+}
+function closeSheet() {
+  sheetOpen = false;
+  $('sheet').classList.remove('open'); $('scrim').classList.remove('open');
+  render();
+}
+$('scrim').onclick = function () { if (window.onSheetClose) window.onSheetClose(); else closeSheet(); };
+
+function searchLinks(name) {
+  var q = encodeURIComponent(name);
+  return '<div class="links"><a target="_blank" rel="noopener" href="https://www.walmart.com/search?q=' + q + '">Walmart ↗</a>' +
+    '<a target="_blank" rel="noopener" href="https://www.target.com/s?searchTerm=' + q + '">Target ↗</a>' +
+    '<a target="_blank" rel="noopener" href="https://www.samsclub.com/s/' + q + '">Sam\'s ↗</a></div>';
+}
+var LOGWORD = { out: 'ran out', bought: 'got it', listed: 'added', asked: 'asked for it', no: 'said no' };
+
+function openItem(id) {
+  var x = items[id]; if (!x) return;
+  var d = x.data;
+  var lb = d.lastBought ? new Date(d.lastBought - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 10) : '';
+  var h = '<h3>' + esc(d.name) + '<button class="btn ghost x" onclick="saveItem(\'' + id + '\')">Done</button></h3>';
+  h += '<div class="f"><label>Name</label><input id="iName" value="' + esc(d.name) + '"></div>';
+  h += '<div class="pair"><div class="f" style="flex:1"><label>Store</label><select id="iStore">' + STORES.map(function (s) {
+    return '<option' + ((d.store || 'Walmart') === s ? ' selected' : '') + '>' + esc(s) + '</option>';
+  }).join('') + '</select></div><div class="f" style="flex:1"><label>Note</label><input id="iNote" value="' + esc(d.note || '') + '" placeholder="2 gallons"></div></div>';
+
+  h += '<h2 style="margin-top:18px">How fast do we use it?</h2>';
+  h += '<div class="f"><label>What you buy</label><div class="pair"><input id="iPack" type="number" inputmode="decimal" value="' + (d.pack || '') + '" placeholder="12"><input id="iUnit" value="' + esc(d.unit || '') + '" placeholder="eggs, rolls"><span>a pack</span></div></div>';
+  h += '<div class="f"><label>We use about</label><div class="pair"><input id="iWeek" type="number" inputmode="decimal" value="' + (d.perWeek || '') + '" placeholder="6"><span>a week</span></div></div>';
+  h += '<div class="f"><label>Or, a pack lasts</label><div class="pair"><input id="iLife" type="number" inputmode="decimal" value="' + (d.lifeSrc === 'you' && !d.perWeek && d.lifeDays ? d.lifeDays : '') + '" placeholder="14"><span>days</span></div></div>';
+  h += '<div class="big" id="iSays"></div>';
+  h += '<div class="f"><label>Last bought</label><div class="pair"><input id="iBought" type="date" value="' + lb + '"><button class="btn sm" onclick="$(\'iBought\').valueAsDate=new Date(Date.now()-new Date().getTimezoneOffset()*60000);itemSays()">Today</button></div></div>';
+
+  h += '<h2>Look it up</h2>' + searchLinks(d.name);
+  var log = (d.log || []).slice(0, 12);
+  if (log.length) {
+    h += '<h2>History</h2><ul class="log">' + log.map(function (e) {
+      return '<li>' + fmtDay(e.at) + ' · ' + esc(LOGWORD[e.k] || e.k) + (e.who ? ' · ' + esc(e.who) : '') + (e.d ? ' · a pack lasted about ' + Math.round(e.d) + ' days' : '') + '</li>';
+    }).join('') + '</ul>';
+  }
+  h += '<p style="margin-top:26px"><button class="btn warn" onclick="delItem(\'' + id + '\')">Delete ' + esc(d.name) + '</button></p>';
+  window.onSheetClose = function () { saveItem(id); };
+  openSheet(h);
+  ['iPack', 'iWeek', 'iLife', 'iBought'].forEach(function (k) { $(k).oninput = itemSays; });
+  $('iWeek').addEventListener('input', function () { $('iLife').value = ''; });
+  $('iLife').addEventListener('input', function () { $('iWeek').value = ''; });
+  itemSays.d = d;
+  itemSays();
+}
+function itemSays() {
+  var d = itemSays.d || {};
+  var life = lifeFromRate($('iPack').value, $('iWeek').value) || Number($('iLife').value) || null;
+  var t;
+  if (life) {
+    t = 'A pack lasts about <b>' + Math.round(life) + ' days</b>.';
+  } else if (d.lifeDays) {
+    t = 'A pack lasts about <b>' + Math.round(d.lifeDays) + ' days</b>' + (d.lifeSrc === 'learned' ? ', learned from ' + d.lifeN + ' time' + (d.lifeN === 1 ? '' : 's') + ' it ran out.' : '.');
+    life = d.lifeDays;
+  } else {
+    t = 'Fill in the pack and how many a week, or skip it. The list also learns on its own every time somebody says it ran out.';
+  }
+  var b = $('iBought').value;
+  if (life && b) {
+    var bt = new Date(b + 'T12:00:00').getTime();
+    t += ' Next buy about <b>' + fmtDay(bt + life * DAY) + '</b>.';
+  }
+  $('iSays').innerHTML = t;
+}
+function saveItem(id) {
+  var x = items[id]; if (!x) return closeSheet();
+  var d = clone(x.data);
+  var name = $('iName').value.trim() || d.name;
+  d.name = name;
+  d.store = $('iStore').value;
+  d.note = $('iNote').value.trim();
+  var pack = Number($('iPack').value) || null, week = Number($('iWeek').value) || null, lifeIn = Number($('iLife').value) || null;
+  d.pack = pack; d.unit = $('iUnit').value.trim(); d.perWeek = week;
+  // Only a number somebody actually changed counts as "you" set it; a learned
+  // rate shown back in the boxes must not be re-stamped as typed.
+  var touched = pack !== (x.data.pack || null) || week !== (x.data.perWeek || null) ||
+    (lifeIn && lifeIn !== x.data.lifeDays);
+  var life = touched ? (lifeFromRate(pack, week) || lifeIn) : null;
+  if (life && life !== d.lifeDays) { d.lifeDays = life; d.lifeSrc = 'you'; d.lifeN = Math.max(d.lifeN || 0, 1); }
+  var b = $('iBought').value;
+  var bt = b ? new Date(b + 'T12:00:00').getTime() : null;
+  var oldDay = d.lastBought ? new Date(d.lastBought - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 10) : '';
+  if (b !== oldDay) d.lastBought = bt;
+  window.onSheetClose = null;
+  if (JSON.stringify(d) !== JSON.stringify(x.data)) put(id, 'item', d);
+  closeSheet();
+}
+function delItem(id) {
+  var x = items[id]; if (!x) return;
+  if (!confirm('Delete ' + x.data.name + ' and everything it learned?')) return;
+  window.onSheetClose = null;
+  put(id, 'item', x.data, true);
+  closeSheet();
+}
+
+/* ---------- recipes ---------- */
+var UNIT_RE = /^((?:\d+(?:[.\/]\d+)?|[½¼¾⅓⅔]|a|an|one|two|three|four)\s*(?:lbs?|pounds?|oz|ounces?|cups?|c\.|tbsp|tablespoons?|tsp|teaspoons?|cans?|packs?|packages?|boxes|box|bags?|jars?|cloves?|gallons?|bunch(?:es)?|dozen|sticks?|slices?|heads?|bottles?|pinch|dash)?\.?\s+(?:of\s+)?)/i;
+function ingParse(line) {
+  var t = String(line || '').replace(/^[-•*\s]+/, '').trim();
+  if (!t) return null;
+  var m = t.match(UNIT_RE);
+  var name = m ? t.slice(m[0].length) : t;
+  name = name.replace(/,.*$/, '').replace(/\(.*?\)/g, '').trim();
+  if (!name) name = t;
+  return { line: t, name: name.charAt(0).toUpperCase() + name.slice(1), qty: m ? m[0].replace(/\s+of\s*$/i, '').trim() : '' };
+}
+function itemByName(n) { var k = normName(n); return all('item').filter(function (x) { return normName(x.data.name) === k; })[0]; }
+
+function renderRecipes() {
+  var rs = all('recipe').sort(function (a, b) { return a.data.name.localeCompare(b.data.name); });
+  var h = header('🍳 Recipes');
+  h += '<p><button class="btn solid" onclick="editRecipe()">+ New recipe</button></p>';
+  h += rs.length ? '<div class="card">' + rs.map(function (r) {
+    var n = (r.data.lines || []).length;
+    return '<div class="row" onclick="openRecipe(\'' + r.id + '\')"><div class="main"><div class="nm">' + esc(r.data.name) + '</div><div class="sb">' + n + ' thing' + (n === 1 ? '' : 's') + (r.data.who ? ' · ' + esc(r.data.who) : '') + '</div></div><span class="sb">›</span></div>';
+  }).join('') + '</div>' : '<div class="card"><div class="empty">No recipes yet. Add the dinners you make most, then one tap puts what\'s missing on the list.</div></div>';
+  $('app').innerHTML = h;
+}
+function openRecipe(id) {
+  var r = items[id]; if (!r) return;
+  var lines = (r.data.lines || []).map(ingParse).filter(Boolean);
+  var h = '<h3>' + esc(r.data.name) + '<button class="btn ghost x" onclick="closeSheet()">Close</button></h3>';
+  h += '<p class="hint">Untick anything you already have, then add the rest.</p><div class="card">';
+  lines.forEach(function (l, i) {
+    var it = itemByName(l.name), st = '', checked = true, dis = false;
+    if (it && it.data.onList) { st = 'already on the list'; checked = false; dis = true; }
+    else if (it && it.data.lastBought) {
+      var n = daysLeft(it.data);
+      if (n != null && n > 3) { st = 'probably have it, ' + leftText(n); checked = false; }
+      else st = 'bought ' + fmtDay(it.data.lastBought);
+    }
+    h += '<label class="ing' + (dis ? ' off' : '') + '"><input type="checkbox" data-i="' + i + '"' + (checked ? ' checked' : '') + (dis ? ' disabled' : '') + ' onchange="recipeCount()">' +
+      '<div class="main"><div class="nm">' + esc(l.line) + '</div>' + (st ? '<div class="sb">' + esc(st) + '</div>' : '') + '</div></label>';
+  });
+  h += '</div><p><button class="btn solid" id="rAdd" onclick="addRecipe(\'' + id + '\')"></button></p>';
+  if (r.data.notes) h += '<h2>Notes</h2><div class="card"><div style="padding:12px 14px;white-space:pre-wrap">' + esc(r.data.notes) + '</div></div>';
+  if (r.data.url) h += '<p><a class="btn" style="text-decoration:none;display:inline-block" target="_blank" rel="noopener" href="' + esc(r.data.url) + '">Open the recipe ↗</a></p>';
+  h += '<p style="margin-top:22px;display:flex;gap:8px"><button class="btn" onclick="editRecipe(\'' + id + '\')">Edit</button><button class="btn warn" onclick="delRecipe(\'' + id + '\')">Delete</button></p>';
+  window.onSheetClose = null;
+  openSheet(h);
+  openRecipe.lines = lines;
+  recipeCount();
+}
+function recipeCount() {
+  var n = [].filter.call(document.querySelectorAll('#sheet .ing input'), function (c) { return c.checked && !c.disabled; }).length;
+  $('rAdd').textContent = n ? 'Add ' + n + ' to the list' : 'Nothing to add';
+  $('rAdd').disabled = !n;
+}
+function addRecipe(id) {
+  var r = items[id], lines = openRecipe.lines || [];
+  var pick = [].filter.call(document.querySelectorAll('#sheet .ing input'), function (c) { return c.checked && !c.disabled; })
+    .map(function (c) { var l = lines[Number(c.dataset.i)]; var it = itemByName(l.name); return { name: it ? it.data.name : l.name, note: (l.qty ? l.qty + ', ' : '') + 'for ' + r.data.name }; });
+  if (!pick.length) return;
+  closeSheet();
+  sayIt({ lines: pick, mode: 'listed' });
+}
+function editRecipe(id) {
+  var r = id ? items[id] : null, d = r ? r.data : { name: '', lines: [], notes: '', url: '' };
+  var h = '<h3>' + (r ? 'Edit recipe' : 'New recipe') + '<button class="btn ghost x" onclick="closeSheet()">Cancel</button></h3>';
+  h += '<div class="f"><label>Name</label><input id="rName" value="' + esc(d.name) + '" placeholder="Tacos"></div>';
+  h += '<div class="f"><label>What it takes, one per line</label><textarea id="rLines" placeholder="2 lbs ground beef&#10;1 pack taco shells&#10;Shredded cheese&#10;Sour cream">' + esc((d.lines || []).join('\n')) + '</textarea></div>';
+  h += '<div class="f"><label>Notes</label><textarea id="rNotes" style="min-height:80px">' + esc(d.notes || '') + '</textarea></div>';
+  h += '<div class="f"><label>Link to the recipe (optional)</label><input id="rUrl" value="' + esc(d.url || '') + '" placeholder="https://" inputmode="url"></div>';
+  h += '<p><button class="btn solid" onclick="saveRecipe(\'' + (id || '') + '\')">Save</button></p>';
+  window.onSheetClose = null;
+  openSheet(h);
+}
+function saveRecipe(id) {
+  var name = $('rName').value.trim();
+  if (!name) { $('rName').focus(); return; }
+  var d = {
+    name: name,
+    lines: $('rLines').value.split('\n').map(function (s) { return s.trim(); }).filter(Boolean),
+    notes: $('rNotes').value.trim(),
+    url: $('rUrl').value.trim(),
+    who: id && items[id] ? items[id].data.who : me
+  };
+  id = id || 'r-' + rid();
+  put(id, 'recipe', d);
+  sheetOpen = false;
+  openRecipe(id);
+}
+function delRecipe(id) {
+  var r = items[id]; if (!r) return;
+  if (!confirm('Delete the ' + r.data.name + ' recipe?')) return;
+  put(id, 'recipe', r.data, true);
+  closeSheet();
+}
+
+/* ---------- settings ---------- */
+function renderSettings() {
+  var ps = people();
+  var h = header('⚙️ Settings');
+  h += '<h2>Siri</h2><div class="card"><div style="padding:14px">' +
+    '<p style="margin:0 0 10px">Say <b>"Hey Siri, Groceries"</b>, then what you\'re out of, like "ketchup and mustard".</p>' +
+    '<ol class="steps"><li>Open this page in <b>Safari</b> (the button below won\'t work inside Messages or another app).</li>' +
+    '<li>Tap <b>Add the Siri shortcut</b>, then <b>Add Shortcut</b>.</li><li>When it asks, type your first name.</li></ol>' +
+    '<p style="margin:14px 0 0"><a class="btn solid" style="text-decoration:none;display:inline-block" href="' + API + '/shortcut">Add the Siri shortcut</a></p></div></div>';
+
+  h += '<h2>Family</h2><div class="card">' + (ps.length ? ps.map(function (p) {
+    var kid = p.data.role === 'kid';
+    return '<div class="row"><div class="main"><div class="nm">' + esc(p.data.name) + (p.data.name === me ? ' <span class="sb">(you)</span>' : '') + '</div>' +
+      '<div class="sb">' + (kid ? 'Kid: what they add waits for a parent to OK' : 'Parent: adds straight to the list') + '</div></div>' +
+      (isKid() ? '' : '<button class="btn sm' + (kid ? '' : ' ghost') + '" onclick="toggleKid(\'' + p.id + '\')">' + (kid ? 'Kid' : 'Parent') + '</button>') + '</div>';
+  }).join('') : '<div class="empty">Nobody yet.</div>') + '</div>';
+  if (!isKid()) h += '<div class="f"><div class="pair"><input id="newP" placeholder="Add someone"><button class="btn" onclick="addP(\'parent\')">Parent</button><button class="btn" onclick="addP(\'kid\')">Kid</button></div></div>';
+
+  h += '<h2>Share with the family</h2><div class="card"><div style="padding:14px"><p style="margin:0 0 10px">Everyone uses the same link. Whoever has it can see and change the list, so only send it to family.</p>' +
+    '<button class="btn" onclick="shareLink()">Send the family link</button></div></div>';
+  h += '<p class="ver">Groceries ' + VERSION + '</p>';
+  $('app').innerHTML = h;
+}
+function toggleKid(id) {
+  var p = items[id]; if (!p) return;
+  var d = clone(p.data); d.role = d.role === 'kid' ? 'parent' : 'kid';
+  put(id, 'person', d); render();
+}
+function addP(role) {
+  var n = $('newP').value.trim(); if (!n) return;
+  var p = personByName(n);
+  if (p) { var d = clone(p.data); d.role = role; put(p.id, 'person', d); } else addPerson(n, role);
+  render();
+}
+function shareLink() {
+  var url = location.origin + location.pathname + '#h=' + HH;
+  if (navigator.share) navigator.share({ title: 'Groceries', text: 'Our grocery list', url: url }).catch(function () {});
+  else (navigator.clipboard ? navigator.clipboard.writeText(url) : Promise.reject()).then(function () { toast('Link copied.'); }).catch(function () { prompt('Copy this link:', url); });
+}
+
+/* ---------- boot ---------- */
+[].forEach.call(document.querySelectorAll('.tabs button'), function (b) {
+  b.onclick = function () { tab = b.dataset.tab; window.scrollTo(0, 0); render(); };
+});
+document.addEventListener('visibilitychange', function () { if (!document.hidden) pull(); });
+document.addEventListener('input', function () { lastType = Date.now(); }, true);
+window.addEventListener('hashchange', function () { location.reload(); });
+loadLocal();
+render();
+if (HH) { pull().then(function () { if (!busy()) render(); }); setInterval(function () { if (!document.hidden) pull(); }, 15000); }
+</script>
+</body>
+</html>

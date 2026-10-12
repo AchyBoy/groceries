@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="x-groc-version" content="v1.1">
+<meta name="x-groc-version" content="v1.2">
 <meta name="robots" content="noindex">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Groceries">
@@ -93,10 +93,13 @@ button{font:inherit;color:inherit;cursor:pointer}
 <div class="toast" id="toast"><span id="toastTxt"></span><button class="btn" id="toastBtn"></button></div>
 
 <script>
-var VERSION = 'v1.1';
+var VERSION = 'v1.2';
 var API_ROOT = 'https://api.jobhubgo.com/api/grocery';
 var DAY = 86400000;
 var STORES = ['Walmart', 'Target', "Sam's", 'Other'];
+// Same numbers as lib/groceryAuto.ts: the server puts an item on the list by
+// itself AUTO_DAYS before it runs out; "Not yet" holds it off SNOOZE_DAYS.
+var AUTO_DAYS = 2, SNOOZE_DAYS = 3;
 
 function hashArg(k) {
   var m = (location.hash || '').match(new RegExp('[#&]' + k + '=([^&]+)'));
@@ -319,7 +322,7 @@ function renderList() {
   var req = its.filter(function (x) { return !x.data.onList && x.data.requested; });
   var due = its.filter(function (x) {
     if (x.data.onList || x.data.requested) return false;
-    var n = daysLeft(x.data); return n != null && n <= 3;
+    var n = daysLeft(x.data); return n != null && n <= 6;
   }).sort(function (a, b) { return daysLeft(a.data) - daysLeft(b.data); });
 
   var h = header('🛒 Groceries');
@@ -347,20 +350,25 @@ function renderList() {
       g.map(function (x) {
         var d = x.data, sub = [];
         if (d.note) sub.push(esc(d.note));
-        if (d.listedBy) sub.push(esc(d.listedBy));
+        var auto = d.listedBy === 'Auto';
+        if (auto) sub.push('added itself, ' + (leftText(daysLeft(d)) || 'running low'));
+        else if (d.listedBy) sub.push(esc(d.listedBy));
         return '<div class="row"><button class="chk" onclick="bought(\'' + x.id + '\')" aria-label="Got it"></button>' +
           '<div class="main" onclick="openItem(\'' + x.id + '\')"><div class="nm">' + esc(d.name) + '</div>' +
-          (sub.length ? '<div class="sb">' + sub.join(' · ') + '</div>' : '') + '</div></div>';
+          (sub.length ? '<div class="sb">' + sub.join(' · ') + '</div>' : '') + '</div>' +
+          (auto ? '<button class="btn sm ghost" onclick="notYet(\'' + x.id + '\')">Not yet</button>' : '') + '</div>';
       }).join('') + '</div>';
   });
 
   if (due.length) {
-    h += '<h2>Running out soon<span class="r"><button class="btn sm" onclick="addAllDue()">Add all</button></span></h2><div class="card">' +
+    h += '<h2>Coming up</h2><div class="card">' +
       due.map(function (x) {
-        var d = x.data;
-        return '<div class="row"><div class="main" onclick="openItem(\'' + x.id + '\')"><div class="nm">' + esc(d.name) + '<span class="tag due">' + leftText(daysLeft(d)) + '</span></div>' +
-          '<div class="sb">' + esc(lastsText(d)) + ' · bought ' + fmtDay(d.lastBought) + '</div></div>' +
-          '<button class="btn sm" onclick="addExisting(\'' + x.id + '\')">Add</button></div>';
+        var d = x.data, n = daysLeft(d);
+        var when = d.snoozeUntil && d.snoozeUntil > Date.now() ? 'held off until ' + fmtDay(d.snoozeUntil)
+          : n <= AUTO_DAYS ? 'adding itself now' : 'adds itself ' + fmtDay(d.lastBought + (d.lifeDays - AUTO_DAYS) * DAY);
+        return '<div class="row"><div class="main" onclick="openItem(\'' + x.id + '\')"><div class="nm">' + esc(d.name) + '<span class="tag due">' + leftText(n) + '</span></div>' +
+          '<div class="sb">' + when + '</div>' +
+          '</div><button class="btn sm" onclick="addExisting(\'' + x.id + '\')">Add now</button></div>';
       }).join('') + '</div>';
   }
 
@@ -420,11 +428,37 @@ function bought(id) {
   var before = clone(x.data);
   var d = clone(x.data);
   d.onList = false; d.requested = null; d.note = '';
-  d.lastBought = Date.now();
+  d.lastBought = Date.now(); d.snoozeUntil = null;
   logIt(d, 'bought');
   put(id, 'item', d);
   render();
   toast('Got ' + d.name + '.', 'Undo', function () { put(id, 'item', before); render(); });
+}
+// "Not yet" on something the list added itself: we still have some, so a pack
+// lasts at least until today plus the snooze. Stretch lifeDays toward that
+// (same 4-sample weight as the server's learning) and hold it off.
+function notYet(id) {
+  var x = items[id]; if (!x) return;
+  var before = clone(x.data), d = clone(x.data), now = Date.now();
+  if (d.lastBought && d.lifeDays) {
+    var atLeast = (now - d.lastBought) / DAY + SNOOZE_DAYS;
+    if (atLeast > d.lifeDays) {
+      var w = Math.min(d.lifeN || 0, 4);
+      d.lifeDays = Math.round((w ? (d.lifeDays * w + atLeast) / (w + 1) : atLeast) * 10) / 10;
+      d.lifeN = (d.lifeN || 0) + 1;
+      if (d.pack) d.perWeek = Math.round(d.pack / d.lifeDays * 7 * 10) / 10;
+    }
+  }
+  d.onList = false; d.snoozeUntil = now + SNOOZE_DAYS * DAY;
+  logIt(d, 'notyet');
+  put(id, 'item', d); render();
+  toast('OK, ' + d.name + ' comes back ' + fmtDay(d.snoozeUntil) + '.', 'Undo', function () { put(id, 'item', before); render(); });
+}
+function takeOff(id) {
+  var x = items[id]; if (!x) return;
+  if (x.data.listedBy === 'Auto') { window.onSheetClose = null; sheetOpen = false; $('sheet').classList.remove('open'); $('scrim').classList.remove('open'); return notYet(id); }
+  var d = clone(x.data); d.onList = false; d.note = ''; logIt(d, 'off');
+  window.onSheetClose = null; put(id, 'item', d); closeSheet();
 }
 function approve(id) {
   var x = items[id]; if (!x) return;
@@ -465,7 +499,7 @@ function searchLinks(name) {
     '<a target="_blank" rel="noopener" href="https://www.target.com/s?searchTerm=' + q + '">Target ↗</a>' +
     '<a target="_blank" rel="noopener" href="https://www.samsclub.com/s/' + q + '">Sam\'s ↗</a></div>';
 }
-var LOGWORD = { out: 'ran out', bought: 'got it', listed: 'added', asked: 'asked for it', no: 'said no' };
+var LOGWORD = { out: 'ran out', bought: 'got it', listed: 'added', asked: 'asked for it', no: 'said no', receipt: 'bought, on the receipt', auto: 'added itself', notyet: 'not yet, still had some', off: 'taken off' };
 
 function openItem(id) {
   var x = items[id]; if (!x) return;
@@ -484,6 +518,12 @@ function openItem(id) {
   h += '<div class="big" id="iSays"></div>';
   h += '<div class="f"><label>Last bought</label><div class="pair"><input id="iBought" type="date" value="' + lb + '"><button class="btn sm" onclick="$(\'iBought\').valueAsDate=new Date(Date.now()-new Date().getTimezoneOffset()*60000);itemSays()">Today</button></div></div>';
 
+  var pr = (d.prices || []).slice(0, 4);
+  if (pr.length) {
+    h += '<h2>What we paid</h2><ul class="log">' + pr.map(function (p) {
+      return '<li>' + fmtDay(p.at) + ' · $' + Number(p.price).toFixed(2) + (p.qty > 1 ? ' for ' + p.qty : '') + ' · ' + esc(p.store) + (p.size ? ' · ' + esc(p.size) : '') + '</li>';
+    }).join('') + '</ul>';
+  }
   h += '<h2>Look it up</h2>' + searchLinks(d.name);
   var log = (d.log || []).slice(0, 12);
   if (log.length) {
@@ -491,6 +531,7 @@ function openItem(id) {
       return '<li>' + fmtDay(e.at) + ' · ' + esc(LOGWORD[e.k] || e.k) + (e.who ? ' · ' + esc(e.who) : '') + (e.d ? ' · a pack lasted about ' + Math.round(e.d) + ' days' : '') + '</li>';
     }).join('') + '</ul>';
   }
+  if (d.onList) h += '<p style="margin-top:22px"><button class="btn" onclick="takeOff(\'' + id + '\')">Take it off the list</button></p>';
   h += '<p style="margin-top:26px"><button class="btn warn" onclick="delItem(\'' + id + '\')">Delete ' + esc(d.name) + '</button></p>';
   window.onSheetClose = function () { saveItem(id); };
   openSheet(h);
@@ -510,7 +551,7 @@ function itemSays() {
     t = 'A pack lasts about <b>' + Math.round(d.lifeDays) + ' days</b>' + (d.lifeSrc === 'learned' ? ', learned from ' + d.lifeN + ' time' + (d.lifeN === 1 ? '' : 's') + ' it ran out.' : '.');
     life = d.lifeDays;
   } else {
-    t = 'Fill in the pack and how many a week, or skip it. The list also learns on its own every time somebody says it ran out.';
+    t = 'Fill in the pack and how many a week, or skip it. The list learns on its own from receipts and every time somebody says it ran out, then adds it by itself before it runs out.';
   }
   var b = $('iBought').value;
   if (life && b) {
@@ -654,6 +695,7 @@ function renderSettings() {
     '<li>Tap <b>Add the Siri shortcut</b>, then <b>Add Shortcut</b>.</li><li>When it asks, type your first name.</li></ol>' +
     '<p style="margin:14px 0 0"><a class="btn solid" style="text-decoration:none;display:inline-block" href="' + API + '/shortcut">Add the Siri shortcut</a></p></div></div>';
 
+  h += '<h2>Receipts from Yahoo</h2><div class="card" id="mailCard"><div class="empty">Checking…</div></div>';
   h += '<h2>Family</h2><div class="card">' + (ps.length ? ps.map(function (p) {
     var kid = p.data.role === 'kid';
     return '<div class="row"><div class="main"><div class="nm">' + esc(p.data.name) + (p.data.name === me ? ' <span class="sb">(you)</span>' : '') + '</div>' +
@@ -666,6 +708,66 @@ function renderSettings() {
     '<button class="btn" onclick="shareLink()">Send the family link</button></div></div>';
   h += '<p class="ver">Groceries ' + VERSION + '</p>';
   $('app').innerHTML = h;
+  drawMail();
+}
+
+/* ---------- receipts from Yahoo ---------- */
+var mailState = null;
+function drawMail() {
+  fetch(API + '/mail', { cache: 'no-store' }).then(function (r) { return r.json(); }).then(function (m) {
+    mailState = m; paintMail();
+  }).catch(function () { if ($('mailCard')) $('mailCard').innerHTML = '<div class="empty">Couldn\'t reach the list.</div>'; });
+}
+function paintMail() {
+  var el = $('mailCard'); if (!el || !mailState) return;
+  var m = mailState, h = '<div style="padding:14px">';
+  if (!m.connected) {
+    if (isKid()) { el.innerHTML = '<div class="empty">A parent can connect this.</div>'; return; }
+    h += '<p style="margin:0 0 8px">The list reads your Walmart, Target and Sam\'s emails and learns what you buy, how often, and what you paid. It opens no other email.</p>' +
+      '<ol class="steps"><li>In the Yahoo Mail app or at <b>login.yahoo.com</b>, open <b>Account info</b>, then <b>Account security</b>.</li>' +
+      '<li>Tap <b>Generate app password</b> (it may say "Other app"), name it Groceries.</li>' +
+      '<li>Copy the 16 letters it shows and paste them below.</li></ol>' +
+      '<div class="f"><label>Yahoo email</label><input id="mEmail" type="email" autocomplete="email" placeholder="you@yahoo.com"></div>' +
+      '<div class="f"><label>App password (not your normal password)</label><input id="mPass" type="password" autocomplete="off" placeholder="16 letters"></div>' +
+      '<p class="hint" id="mErr" style="color:var(--warn)"></p>' +
+      '<button class="btn solid" id="mGo" onclick="connectMail()">Connect</button>' +
+      '<p class="hint">You can turn it off here, or delete the app password in Yahoo, any time.</p>';
+  } else {
+    var st = m.status === 'bad-login' ? '<b style="color:var(--warn)">Yahoo stopped taking the app password.</b> Disconnect and connect again with a new one.'
+      : m.status === 'error' ? 'Couldn\'t reach Yahoo last time, it will try again.'
+      : m.status === 'new' ? 'Reading your last 4 months of receipts. This can take a few minutes.'
+      : 'Checks every 2 hours' + (m.lastRun ? ', last ' + new Date(m.lastRun).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : '') + '.';
+    h += '<p style="margin:0 0 6px">Reading <b>' + esc(m.email) + '</b></p><p class="hint" style="margin:0 0 12px">' + st + '</p>';
+    var got = (m.receipts || []).filter(function (r) { return r.kind === 'purchase'; });
+    if (got.length) h += '<ul class="log" style="margin-bottom:12px">' + got.slice(0, 6).map(function (r) {
+      return '<li>' + fmtDay(r.at) + ' · ' + esc(r.store) + ' · ' + r.n + ' item' + (r.n === 1 ? '' : 's') + '</li>';
+    }).join('') + '</ul>';
+    if (!isKid()) h += '<div style="display:flex;gap:8px"><button class="btn" id="mRun" onclick="runMail()">Check now</button><button class="btn ghost" onclick="dropMail()">Disconnect</button></div>';
+  }
+  el.innerHTML = h + '</div>';
+  if (m.connected && m.status === 'new') setTimeout(function () { if (tab === 'settings' && !sheetOpen) drawMail(); }, 8000);
+}
+function connectMail() {
+  var email = $('mEmail').value.trim(), pass = $('mPass').value.replace(/\s+/g, '');
+  if (!email || !pass) { $('mErr').textContent = 'Fill in both.'; return; }
+  $('mGo').disabled = true; $('mGo').textContent = 'Checking with Yahoo…'; $('mErr').textContent = '';
+  fetch(API + '/mail', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email: email, password: pass, who: me }) })
+    .then(function (r) { return r.json(); }).then(function (j) {
+      if (!j.ok) { $('mErr').textContent = j.error || 'That didn\'t work.'; $('mGo').disabled = false; $('mGo').textContent = 'Connect'; return; }
+      toast('Connected. Reading your receipts now.');
+      drawMail();
+    }).catch(function () { $('mErr').textContent = 'Couldn\'t reach the list. Try again.'; $('mGo').disabled = false; $('mGo').textContent = 'Connect'; });
+}
+function runMail() {
+  $('mRun').disabled = true; $('mRun').textContent = 'Checking…';
+  fetch(API + '/mail/run', { method: 'POST' }).then(function (r) { return r.json(); }).then(function (j) {
+    toast(j.error ? 'Couldn\'t check right now.' : j.read ? 'Read ' + j.read + ' new email' + (j.read === 1 ? '' : 's') + '.' : 'Nothing new.');
+    pull(true); drawMail();
+  }).catch(function () { drawMail(); });
+}
+function dropMail() {
+  if (!confirm('Stop reading receipts from Yahoo? What it already learned stays.')) return;
+  fetch(API + '/mail', { method: 'DELETE' }).then(function () { drawMail(); });
 }
 function toggleKid(id) {
   var p = items[id]; if (!p) return;

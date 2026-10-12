@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="x-groc-version" content="v1.5">
+<meta name="x-groc-version" content="v1.6">
 <meta name="robots" content="noindex">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Groceries">
@@ -93,7 +93,7 @@ button{font:inherit;color:inherit;cursor:pointer}
 <div class="toast" id="toast"><span id="toastTxt"></span><button class="btn" id="toastBtn"></button></div>
 
 <script>
-var VERSION = 'v1.5';
+var VERSION = 'v1.6';
 var API_ROOT = 'https://api.jobhubgo.com/api/grocery';
 var DAY = 86400000;
 var STORES = ['Walmart', 'Target', "Sam's", 'Other'];
@@ -118,6 +118,7 @@ var sheetOpen = false;
 var lastType = 0;
 var searchText = '';
 var showAll = false;
+var showSkipped = false;
 
 function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
 function rid() { return Math.random().toString(36).slice(2, 10); }
@@ -228,6 +229,9 @@ function lifeFromRate(pack, perWeek) {
   if (!(pack > 0) || !(perWeek > 0)) return null;
   return Math.round(pack / perWeek * 7 * 10) / 10;
 }
+// track false = Skip, null = a receipt brought it in and nobody has said
+// Track or Skip yet. Neither shows in the list's own sections or adds itself.
+function tracked(d) { return d.track !== false && d.track !== null; }
 function daysLeft(d) {
   if (!d.lifeDays || !d.lastBought) return null;
   return (d.lastBought + d.lifeDays * DAY - Date.now()) / DAY;
@@ -320,8 +324,12 @@ function renderList() {
   var its = all('item');
   var on = its.filter(function (x) { return x.data.onList; });
   var req = its.filter(function (x) { return !x.data.onList && x.data.requested; });
+  var ask = its.filter(function (x) { return x.data.track === null && !x.data.onList; })
+    .sort(function (a, b) { return (b.data.lastBought || 0) - (a.data.lastBought || 0); });
+  var skipped = its.filter(function (x) { return x.data.track === false && !x.data.onList; })
+    .sort(function (a, b) { return a.data.name.localeCompare(b.data.name); });
   var due = its.filter(function (x) {
-    if (x.data.onList || x.data.requested) return false;
+    if (x.data.onList || x.data.requested || !tracked(x.data)) return false;
     var n = daysLeft(x.data); return n != null && n <= 6;
   }).sort(function (a, b) { return daysLeft(a.data) - daysLeft(b.data); });
 
@@ -372,12 +380,27 @@ function renderList() {
       }).join('') + '</div>';
   }
 
-  var rest = its.filter(function (x) { return !x.data.onList; }).sort(function (a, b) { return a.data.name.localeCompare(b.data.name); });
+  if (ask.length) {
+    h += '<h2>New from receipts: keep track of these?</h2><div class="card">' + ask.map(function (x) {
+      var d = x.data;
+      return '<div class="row"><div class="main" onclick="openItem(\'' + x.id + '\')"><div class="nm">' + esc(d.name) + '</div>' +
+        '<div class="sb">' + (d.lastBought ? 'bought ' + fmtDay(d.lastBought) : '') + (d.store ? ' at ' + esc(d.store) : '') + '</div></div>' +
+        '<button class="btn sm" onclick="setTrack(\'' + x.id + '\', true)">Track</button><button class="btn sm ghost" onclick="setTrack(\'' + x.id + '\', false)">Skip</button></div>';
+    }).join('') + '</div><p class="hint">Track means the list learns how fast you use it and adds it before you run out. Skip means it ignores it from now on.</p>';
+  }
+
+  var rest = its.filter(function (x) { return !x.data.onList && tracked(x.data); }).sort(function (a, b) { return a.data.name.localeCompare(b.data.name); });
   h += '<h2>Everything we buy · ' + rest.length + '<span class="r"><button class="btn sm ghost" onclick="toggleAll()">' + (showAll ? 'Hide' : 'Show') + '</button></span></h2>';
   if (showAll) {
     h += '<input class="search" id="searchIn" placeholder="Search" value="' + esc(searchText) + '" oninput="searchText=this.value;lastType=Date.now();drawAll()">';
     h += '<div class="card" id="allList"></div>';
     h += '<p class="hint">Tap an item to set how fast you use it, like "a 12 pack, 6 a week".</p>';
+  }
+  if (skipped.length) {
+    h += '<h2>Not tracked · ' + skipped.length + '<span class="r"><button class="btn sm ghost" onclick="showSkipped=!showSkipped;render()">' + (showSkipped ? 'Hide' : 'Show') + '</button></span></h2>';
+    if (showSkipped) h += '<div class="card">' + skipped.map(function (x) {
+      return '<div class="row"><div class="main"><div class="nm">' + esc(x.data.name) + '</div></div><button class="btn sm" onclick="setTrack(\'' + x.id + '\', true)">Track</button></div>';
+    }).join('') + '</div>';
   }
   $('app').innerHTML = h;
   if (showAll) drawAll();
@@ -387,7 +410,7 @@ function renderList() {
 function toggleAll() { showAll = !showAll; render(); }
 function drawAll() {
   var q = normName(searchText);
-  var rest = all('item').filter(function (x) { return !x.data.onList && (!q || normName(x.data.name).indexOf(q) >= 0); })
+  var rest = all('item').filter(function (x) { return !x.data.onList && tracked(x.data) && (!q || normName(x.data.name).indexOf(q) >= 0); })
     .sort(function (a, b) { return a.data.name.localeCompare(b.data.name); });
   $('allList').innerHTML = rest.length ? rest.map(function (x) {
     var d = x.data, n = daysLeft(d), sub = [];
@@ -460,6 +483,12 @@ function takeOff(id) {
   var d = clone(x.data); d.onList = false; d.note = ''; logIt(d, 'off');
   window.onSheetClose = null; put(id, 'item', d); closeSheet();
 }
+function setTrack(id, on) {
+  var x = items[id]; if (!x) return;
+  var d = clone(x.data); d.track = on; logIt(d, on ? 'track' : 'skip');
+  put(id, 'item', d); render();
+  toast(on ? 'Tracking ' + d.name + '.' : 'Skipping ' + d.name + '. It\'s under Not tracked if you change your mind.');
+}
 function approve(id) {
   var x = items[id]; if (!x) return;
   sayIt({ lines: [{ name: x.data.name, note: x.data.note || '' }], mode: 'listed' });
@@ -499,7 +528,7 @@ function searchLinks(name) {
     '<a target="_blank" rel="noopener" href="https://www.target.com/s?searchTerm=' + q + '">Target ↗</a>' +
     '<a target="_blank" rel="noopener" href="https://www.samsclub.com/s/' + q + '">Sam\'s ↗</a></div>';
 }
-var LOGWORD = { out: 'ran out', bought: 'got it', listed: 'added', asked: 'asked for it', no: 'said no', receipt: 'bought, on the receipt', auto: 'added itself', notyet: 'not yet, still had some', off: 'taken off' };
+var LOGWORD = { out: 'ran out', bought: 'got it', listed: 'added', asked: 'asked for it', no: 'said no', receipt: 'bought, on the receipt', auto: 'added itself', notyet: 'not yet, still had some', off: 'taken off', pickup: 'picked up (was on the list)', track: 'tracking', skip: 'not tracking' };
 
 function openItem(id) {
   var x = items[id]; if (!x) return;
@@ -746,14 +775,14 @@ function paintMail() {
   } else {
     var st = m.status === 'bad-login' ? '<b style="color:var(--warn)">Yahoo stopped taking the app password.</b> Disconnect and connect again with a new one.'
       : m.status === 'error' ? 'Couldn\'t reach Yahoo last time, it will try again.'
-      : m.status === 'new' ? 'Reading your last 4 months of receipts. This can take a few minutes.'
+      : m.status === 'new' ? 'Reading your last 4 months of receipts. This can take a few minutes; this box updates by itself.'
       : 'Checks every 2 hours' + (m.lastRun ? ', last ' + new Date(m.lastRun).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : '') + '.';
     h += '<p style="margin:0 0 6px">Reading <b>' + esc(m.email) + '</b></p><p class="hint" style="margin:0 0 12px">' + st + '</p>';
     var got = (m.receipts || []).filter(function (r) { return r.kind === 'purchase'; });
     if (got.length) h += '<ul class="log" style="margin-bottom:12px">' + got.slice(0, 6).map(function (r) {
       return '<li>' + fmtDay(r.at) + ' · ' + esc(r.store) + ' · ' + r.n + ' item' + (r.n === 1 ? '' : 's') + '</li>';
     }).join('') + '</ul>';
-    if (!isKid()) h += '<div style="display:flex;gap:8px"><button class="btn" id="mRun" onclick="runMail()">Check now</button><button class="btn ghost" onclick="dropMail()">Disconnect</button></div>';
+    if (!isKid()) h += '<div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn" id="mRun" onclick="runMail()">Check now</button><button class="btn ghost" onclick="rereadMail()">Read all again</button><button class="btn ghost" onclick="dropMail()">Disconnect</button></div>';
   }
   el.innerHTML = h + '</div>';
   if (m.connected && m.status === 'new') setTimeout(function () { if (tab === 'settings' && !sheetOpen) drawMail(); }, 8000);
@@ -775,6 +804,12 @@ function runMail() {
     toast(j.error ? 'Couldn\'t check right now.' : j.read ? 'Read ' + j.read + ' new email' + (j.read === 1 ? '' : 's') + '.' : 'Nothing new.');
     pull(true); drawMail();
   }).catch(function () { drawMail(); });
+}
+function rereadMail() {
+  if (!confirm('Read the last 4 months of receipts again from the start? Things only receipts added get rebuilt; nothing you typed or set is touched.')) return;
+  fetch(API + '/mail/reset', { method: 'POST' }).then(function (r) { return r.json(); }).then(function () {
+    toast('Reading them again. This takes a few minutes.'); pull(true); drawMail();
+  }).catch(function () { toast("Couldn't reach the list. Try again."); });
 }
 function dropMail() {
   if (!confirm('Stop reading receipts from Yahoo? What it already learned stays.')) return;

@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="x-groc-version" content="v1.4">
+<meta name="x-groc-version" content="v1.5">
 <meta name="robots" content="noindex">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Groceries">
@@ -93,7 +93,7 @@ button{font:inherit;color:inherit;cursor:pointer}
 <div class="toast" id="toast"><span id="toastTxt"></span><button class="btn" id="toastBtn"></button></div>
 
 <script>
-var VERSION = 'v1.4';
+var VERSION = 'v1.5';
 var API_ROOT = 'https://api.jobhubgo.com/api/grocery';
 var DAY = 86400000;
 var STORES = ['Walmart', 'Target', "Sam's", 'Other'];
@@ -713,10 +713,17 @@ function renderSettings() {
 
 /* ---------- receipts from Yahoo ---------- */
 var mailState = null;
-function drawMail() {
-  fetch(API + '/mail', { cache: 'no-store' }).then(function (r) { return r.json(); }).then(function (m) {
+// A failed check retries by itself (the server restarts for a minute when it
+// updates), and offers Try again, so the box is never a dead end.
+function drawMail(tries) {
+  tries = tries || 0;
+  fetch(API + '/mail', { cache: 'no-store' }).then(function (r) { if (!r.ok) throw 0; return r.json(); }).then(function (m) {
     mailState = m; paintMail();
-  }).catch(function () { if ($('mailCard')) $('mailCard').innerHTML = '<div class="empty">Couldn\'t reach the list.</div>'; });
+  }).catch(function () {
+    if (!$('mailCard')) return;
+    if (tries < 3) { $('mailCard').innerHTML = '<div class="empty">Checking…</div>'; setTimeout(function () { if (tab === 'settings') drawMail(tries + 1); }, 5000); return; }
+    $('mailCard').innerHTML = '<div class="empty">Couldn\'t reach the list just now.<br><button class="btn" style="margin-top:10px" onclick="drawMail()">Try again</button></div>';
+  });
 }
 function paintMail() {
   var el = $('mailCard'); if (!el || !mailState) return;

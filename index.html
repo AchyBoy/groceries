@@ -3,12 +3,14 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="x-groc-version" content="v1.0">
+<meta name="x-groc-version" content="v1.1">
 <meta name="robots" content="noindex">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Groceries">
 <meta name="theme-color" content="#1f8a4c">
 <title>Groceries</title>
+<link rel="icon" href="icon.png">
+<link rel="apple-touch-icon" href="icon.png">
 <style>
 :root{--bg:#f4f5f2;--card:#fff;--ink:#1d211c;--sub:#6b7268;--line:#e3e6e0;--acc:#1f8a4c;--accsoft:#e3f3e9;--warn:#c25b12;--warnsoft:#fcefe3;--kid:#7a4fc0;--kidsoft:#efe8fa}
 @media (prefers-color-scheme:dark){:root{--bg:#121411;--card:#1c1f1b;--ink:#eef0ec;--sub:#9aa196;--line:#2d322b;--acc:#45b673;--accsoft:#1d3325;--warn:#f0954a;--warnsoft:#3a2716;--kid:#b89af0;--kidsoft:#2c2440}}
@@ -91,7 +93,7 @@ button{font:inherit;color:inherit;cursor:pointer}
 <div class="toast" id="toast"><span id="toastTxt"></span><button class="btn" id="toastBtn"></button></div>
 
 <script>
-var VERSION = 'v1.0';
+var VERSION = 'v1.1';
 var API_ROOT = 'https://api.jobhubgo.com/api/grocery';
 var DAY = 86400000;
 var STORES = ['Walmart', 'Target', "Sam's", 'Other'];
@@ -183,7 +185,7 @@ function flush() {
   }).catch(function () { flushing = false; });
 }
 
-function pull() {
+function pull(force) {
   if (!HH) return Promise.resolve();
   return fetch(API + '?since=' + Math.max(0, since - 15000), { cache: 'no-store' })
     .then(function (r) { return r.json(); })
@@ -201,7 +203,7 @@ function pull() {
       since = j.now || since;
       saveLocal();
       flush();
-      if (changed && !busy()) render();
+      if ((changed || force) && (force ? !sheetOpen : !busy())) render();
     }).catch(function () {});
 }
 
@@ -231,7 +233,7 @@ function lastsText(d) {
   if (!d.lifeDays) return '';
   var days = Math.round(d.lifeDays);
   var t = days >= 14 && days % 7 === 0 ? (days / 7) + ' weeks' : days === 7 ? '1 week' : days + ' day' + (days === 1 ? '' : 's');
-  return 'a ' + (d.pack ? d.pack + (d.unit ? ' ' + d.unit : '') + ' ' : '') + 'pack lasts about ' + t;
+  return (d.pack ? 'a pack of ' + d.pack + (d.unit ? ' ' + d.unit : '') : 'a pack') + ' lasts about ' + t;
 }
 function leftText(n) {
   if (n == null) return '';
@@ -245,7 +247,7 @@ function sayIt(body) {
   body.who = me || 'Someone';
   return fetch(API + '/say', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
     .then(function (r) { return r.json(); })
-    .then(function (j) { toast(j.said || 'Saved.'); return pull(); })
+    .then(function (j) { toast(j.said || 'Saved.'); return pull(true); })
     .catch(function () { toast("Couldn't reach the list. Check your signal and try again."); });
 }
 

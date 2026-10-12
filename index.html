@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="x-groc-version" content="v1.6">
+<meta name="x-groc-version" content="v1.7">
 <meta name="robots" content="noindex">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Groceries">
@@ -93,7 +93,7 @@ button{font:inherit;color:inherit;cursor:pointer}
 <div class="toast" id="toast"><span id="toastTxt"></span><button class="btn" id="toastBtn"></button></div>
 
 <script>
-var VERSION = 'v1.6';
+var VERSION = 'v1.7';
 var API_ROOT = 'https://api.jobhubgo.com/api/grocery';
 var DAY = 86400000;
 var STORES = ['Walmart', 'Target', "Sam's", 'Other'];
@@ -330,7 +330,8 @@ function renderList() {
     .sort(function (a, b) { return a.data.name.localeCompare(b.data.name); });
   var due = its.filter(function (x) {
     if (x.data.onList || x.data.requested || !tracked(x.data)) return false;
-    var n = daysLeft(x.data); return n != null && n <= 6;
+    // Same rule as autoDue: more than one whole pack life overdue = stopped buying it.
+    var n = daysLeft(x.data); return n != null && n <= 6 && n >= -x.data.lifeDays;
   }).sort(function (a, b) { return daysLeft(a.data) - daysLeft(b.data); });
 
   var h = header('🛒 Groceries');

@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="x-groc-version" content="v1.9">
+<meta name="x-groc-version" content="v1.10">
 <meta name="robots" content="noindex">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Groceries">
@@ -94,7 +94,7 @@ button{font:inherit;color:inherit;cursor:pointer}
 <div class="toast" id="toast"><span id="toastTxt"></span><button class="btn" id="toastBtn"></button></div>
 
 <script>
-var VERSION = 'v1.9';
+var VERSION = 'v1.10';
 var API_ROOT = 'https://api.jobhubgo.com/api/grocery';
 var DAY = 86400000;
 var STORES = ['Walmart', 'Target', "Sam's", 'Other'];
@@ -739,7 +739,9 @@ function renderSettings() {
     '<p style="margin:0 0 10px">Say <b>"Hey Siri, Groceries"</b>, then what you\'re out of, like "ketchup and mustard".</p>' +
     '<ol class="steps"><li>Open this page in <b>Safari</b> (the button below won\'t work inside Messages or another app).</li>' +
     '<li>Tap <b>Add the Siri shortcut</b>, then <b>Add Shortcut</b>.</li><li>When it asks, type your first name.</li></ol>' +
-    '<p style="margin:14px 0 0"><a class="btn solid" style="text-decoration:none;display:inline-block" href="' + API + '/shortcut">Add the Siri shortcut</a></p></div></div>';
+    '<p style="margin:14px 0 0"><a class="btn solid" style="text-decoration:none;display:inline-block" href="' + API + '/shortcut">Add the Siri shortcut</a></p>' +
+    '<p style="margin:16px 0 6px"><b>For someone without Safari</b> (a kid\'s phone): send them the shortcut. They tap it in Messages, it opens in Shortcuts, they tap Add Shortcut and type their name.</p>' +
+    '<button class="btn" onclick="sendShortcut()">Send the Siri shortcut</button></div></div>';
 
   h += '<h2>Receipts from Yahoo</h2><div class="card" id="mailCard"><div class="empty">Checking…</div></div>';
   h += '<h2>Family</h2><div class="card">' + (ps.length ? ps.map(function (p) {
@@ -842,6 +844,15 @@ function addP(role) {
   var p = personByName(n);
   if (p) { var d = clone(p.data); d.role = role; put(p.id, 'person', d); } else addPerson(n, role);
   render();
+}
+// The shortcut as a FILE through the share sheet, so it can go by Messages or
+// AirDrop to a phone that has no Safari. Opening it there needs only Shortcuts.
+function sendShortcut() {
+  fetch(API + '/shortcut', { cache: 'no-store' }).then(function (r) { if (!r.ok) throw 0; return r.blob(); }).then(function (b) {
+    var f = new File([b], 'Groceries.shortcut', { type: 'application/octet-stream' });
+    if (navigator.canShare && navigator.canShare({ files: [f] })) return navigator.share({ files: [f], title: 'Groceries' });
+    location.href = API + '/shortcut';
+  }).catch(function (e) { if (!e || e.name !== 'AbortError') toast("Couldn't get the shortcut. Try again."); });
 }
 function shareLink() {
   var url = location.origin + location.pathname + '#h=' + HH;

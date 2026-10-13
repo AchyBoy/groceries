@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="x-groc-version" content="v1.7">
+<meta name="x-groc-version" content="v1.8">
 <meta name="robots" content="noindex">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Groceries">
@@ -39,6 +39,7 @@ button{font:inherit;color:inherit;cursor:pointer}
 .add input{flex:1;min-width:0;font:inherit;font-size:18px;padding:13px 14px;border-radius:12px;border:1px solid var(--line);background:var(--card);color:var(--ink)}
 .add .btn{font-size:18px;padding:0 18px}
 .hint{font-size:14px;color:var(--sub);margin:6px 4px}
+.what{font-size:13px;color:var(--sub);margin:-4px 4px 8px}
 .empty{padding:18px 14px;color:var(--sub);text-align:center}
 .tag{display:inline-block;font-size:12px;font-weight:700;border-radius:6px;padding:1px 6px;margin-left:6px;vertical-align:1px}
 .tag.kid{background:var(--kidsoft);color:var(--kid)}
@@ -93,7 +94,7 @@ button{font:inherit;color:inherit;cursor:pointer}
 <div class="toast" id="toast"><span id="toastTxt"></span><button class="btn" id="toastBtn"></button></div>
 
 <script>
-var VERSION = 'v1.7';
+var VERSION = 'v1.8';
 var API_ROOT = 'https://api.jobhubgo.com/api/grocery';
 var DAY = 86400000;
 var STORES = ['Walmart', 'Target', "Sam's", 'Other'];
@@ -242,6 +243,12 @@ function lastsText(d) {
   var t = days >= 14 && days % 7 === 0 ? (days / 7) + ' weeks' : days === 7 ? '1 week' : days + ' day' + (days === 1 ? '' : 's');
   return (d.pack ? 'a pack of ' + d.pack + (d.unit ? ' ' + d.unit : '') : 'a pack') + ' lasts about ' + t;
 }
+function lastsShort(d) {
+  var n = Math.round(d.lifeDays || 0);
+  if (!n) return 'a while';
+  if (n >= 10) { var w = Math.round(n / 7); return 'about ' + w + ' week' + (w === 1 ? '' : 's'); }
+  return 'about ' + n + ' day' + (n === 1 ? '' : 's');
+}
 function leftText(n) {
   if (n == null) return '';
   if (n <= 0.5) return 'probably out now';
@@ -339,7 +346,7 @@ function renderList() {
   h += '<p class="hint">Type a few at once: "ketchup, mustard and eggs". Or say "Hey Siri, Groceries".</p>';
 
   if (req.length) {
-    h += '<h2>Asked for <span class="r"></span></h2><div class="card">' + req.map(function (x) {
+    h += '<h2>Asked for <span class="r"></span></h2><p class="what">A kid wants these. OK puts it on the list, No drops it.</p><div class="card">' + req.map(function (x) {
       var d = x.data;
       return '<div class="row"><div class="main"><div class="nm">' + esc(d.name) + '<span class="tag kid">' + esc(d.requested.who) + '</span></div>' +
         '<div class="sb">' + (d.note ? esc(d.note) + ' · ' : '') + 'asked ' + fmtDay(d.requested.at) + '</div></div>' +
@@ -349,7 +356,7 @@ function renderList() {
     }).join('') + '</div>';
   }
 
-  h += '<h2>On the list · ' + on.length + '</h2>';
+  h += '<h2>On the list · ' + on.length + '</h2><p class="what">What to get. Tap the circle when you have it. Copy puts a store\'s list on your clipboard.</p>';
   if (!on.length) h += '<div class="card"><div class="empty">Nothing on the list. Add what you\'re out of above.</div></div>';
   STORES.forEach(function (s) {
     var g = on.filter(function (x) { return (STORES.indexOf(x.data.store) < 0 ? 'Other' : x.data.store) === s; })
@@ -360,7 +367,7 @@ function renderList() {
         var d = x.data, sub = [];
         if (d.note) sub.push(esc(d.note));
         var auto = d.listedBy === 'Auto';
-        if (auto) sub.push('added itself, ' + (leftText(daysLeft(d)) || 'running low'));
+        if (auto) sub.push('added itself: last bought ' + (d.lastBought ? fmtDay(d.lastBought) : '?') + ', usually lasts ' + lastsShort(d));
         else if (d.listedBy) sub.push(esc(d.listedBy));
         return '<div class="row"><button class="chk" onclick="bought(\'' + x.id + '\')" aria-label="Got it"></button>' +
           '<div class="main" onclick="openItem(\'' + x.id + '\')"><div class="nm">' + esc(d.name) + '</div>' +
@@ -369,8 +376,11 @@ function renderList() {
       }).join('') + '</div>';
   });
 
+  if (on.some(function (x) { return x.data.listedBy === 'Auto'; })) {
+    h += '<p class="hint">"Added itself" means the list thinks you\'re about out, from how often you buy it. Got it already? Tap the circle. Still have some? Tap Not yet and it learns.</p>';
+  }
   if (due.length) {
-    h += '<h2>Coming up</h2><div class="card">' +
+    h += '<h2>Coming up</h2><p class="what">Running low soon. Each one adds itself on the day shown, or tap Add now.</p><div class="card">' +
       due.map(function (x) {
         var d = x.data, n = daysLeft(d);
         var when = d.snoozeUntil && d.snoozeUntil > Date.now() ? 'held off until ' + fmtDay(d.snoozeUntil)
@@ -382,7 +392,7 @@ function renderList() {
   }
 
   if (ask.length) {
-    h += '<h2>New from receipts: keep track of these?</h2><div class="card">' + ask.map(function (x) {
+    h += '<h2>New from receipts: keep track of these?</h2><p class="what">Things from your receipts that may not be groceries.</p><div class="card">' + ask.map(function (x) {
       var d = x.data;
       return '<div class="row"><div class="main" onclick="openItem(\'' + x.id + '\')"><div class="nm">' + esc(d.name) + '</div>' +
         '<div class="sb">' + (d.lastBought ? 'bought ' + fmtDay(d.lastBought) : '') + (d.store ? ' at ' + esc(d.store) : '') + '</div></div>' +
@@ -392,6 +402,7 @@ function renderList() {
 
   var rest = its.filter(function (x) { return !x.data.onList && tracked(x.data); }).sort(function (a, b) { return a.data.name.localeCompare(b.data.name); });
   h += '<h2>Everything we buy · ' + rest.length + '<span class="r"><button class="btn sm ghost" onclick="toggleAll()">' + (showAll ? 'Hide' : 'Show') + '</button></span></h2>';
+  h += '<p class="what">Everything the list keeps track of, with how long each lasts. + puts it on the list.</p>';
   if (showAll) {
     h += '<input class="search" id="searchIn" placeholder="Search" value="' + esc(searchText) + '" oninput="searchText=this.value;lastType=Date.now();drawAll()">';
     h += '<div class="card" id="allList"></div>';
@@ -399,6 +410,7 @@ function renderList() {
   }
   if (skipped.length) {
     h += '<h2>Not tracked · ' + skipped.length + '<span class="r"><button class="btn sm ghost" onclick="showSkipped=!showSkipped;render()">' + (showSkipped ? 'Hide' : 'Show') + '</button></span></h2>';
+    h += '<p class="what">Things you said Skip to. The list ignores them; Track brings one back.</p>';
     if (showSkipped) h += '<div class="card">' + skipped.map(function (x) {
       return '<div class="row"><div class="main"><div class="nm">' + esc(x.data.name) + '</div></div><button class="btn sm" onclick="setTrack(\'' + x.id + '\', true)">Track</button></div>';
     }).join('') + '</div>';

@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="x-groc-version" content="v1.8">
+<meta name="x-groc-version" content="v1.9">
 <meta name="robots" content="noindex">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Groceries">
@@ -94,7 +94,7 @@ button{font:inherit;color:inherit;cursor:pointer}
 <div class="toast" id="toast"><span id="toastTxt"></span><button class="btn" id="toastBtn"></button></div>
 
 <script>
-var VERSION = 'v1.8';
+var VERSION = 'v1.9';
 var API_ROOT = 'https://api.jobhubgo.com/api/grocery';
 var DAY = 86400000;
 var STORES = ['Walmart', 'Target', "Sam's", 'Other'];
@@ -465,6 +465,8 @@ function bought(id) {
   var d = clone(x.data);
   d.onList = false; d.requested = null; d.note = '';
   d.lastBought = Date.now(); d.snoozeUntil = null;
+  // Purchase history (the server works pack life out from it; see recomputeLife).
+  d.buys = (d.buys || (before.lastBought ? [{ at: before.lastBought, q: 1 }] : [])).concat([{ at: d.lastBought, q: 1 }]).slice(-30);
   logIt(d, 'bought');
   put(id, 'item', d);
   render();
@@ -486,6 +488,8 @@ function notYet(id) {
     }
   }
   d.onList = false; d.snoozeUntil = now + SNOOZE_DAYS * DAY;
+  // A lower bound the server keeps when it recomputes pack life.
+  if (d.lastBought) d.holds = (d.holds || []).concat([{ at: now, d: Math.round(((now - d.lastBought) / DAY + SNOOZE_DAYS) * 10) / 10 }]).slice(-30);
   logIt(d, 'notyet');
   put(id, 'item', d); render();
   toast('OK, ' + d.name + ' comes back ' + fmtDay(d.snoozeUntil) + '.', 'Undo', function () { put(id, 'item', before); render(); });
@@ -541,7 +545,7 @@ function searchLinks(name) {
     '<a target="_blank" rel="noopener" href="https://www.target.com/s?searchTerm=' + q + '">Target ↗</a>' +
     '<a target="_blank" rel="noopener" href="https://www.samsclub.com/s/' + q + '">Sam\'s ↗</a></div>';
 }
-var LOGWORD = { out: 'ran out', bought: 'got it', listed: 'added', asked: 'asked for it', no: 'said no', receipt: 'bought, on the receipt', auto: 'added itself', notyet: 'not yet, still had some', off: 'taken off', pickup: 'picked up (was on the list)', track: 'tracking', skip: 'not tracking' };
+var LOGWORD = { out: 'ran out', bought: 'got it', listed: 'added', asked: 'asked for it', no: 'said no', receipt: 'bought, on the receipt', walmart: 'bought, on the Walmart order', auto: 'added itself', notyet: 'not yet, still had some', off: 'taken off', pickup: 'picked up (was on the list)', track: 'tracking', skip: 'not tracking' };
 
 function openItem(id) {
   var x = items[id]; if (!x) return;

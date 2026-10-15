@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="x-groc-version" content="v1.12">
+<meta name="x-groc-version" content="v1.13">
 <meta name="robots" content="noindex">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Groceries">
@@ -32,6 +32,7 @@ h2 .r{margin-left:auto;text-transform:none;letter-spacing:0}
 button{font:inherit;color:inherit;cursor:pointer}
 .btn{border:0;border-radius:10px;padding:9px 14px;font-weight:600;background:var(--accsoft);color:var(--acc);white-space:nowrap}
 .btn.solid{background:var(--acc);color:#fff}
+.btn.wmfill[disabled]{opacity:.75}
 .btn.wmfill{display:block;width:100%;margin:6px 0 4px;padding:13px;font-size:16px;background:#0071dc;color:#fff}
 .btn.ghost{background:none;color:var(--sub);padding:9px 8px}
 .btn.warn{background:var(--warnsoft);color:var(--warn)}
@@ -359,13 +360,16 @@ function renderList() {
 
   h += '<h2>On the list · ' + on.length + '</h2><p class="what">What to get. Tap the circle when you have it. Copy puts a store\'s list on your clipboard.</p>';
   var wmAll = on.filter(forWalmart), wmList = wmAll.filter(function (x) { return x.data.wm; });
-  if (wmList.length) {
+  var job = items['meta-wmfill'] && !items['meta-wmfill'].deleted ? items['meta-wmfill'].data : null;
+  var jobLive = job && (job.status === 'waiting' || job.status === 'working') && Date.now() - job.at < 6 * 3600 * 1000;
+  if (wmList.length || jobLive) {
     var wmMiss = wmAll.length - wmList.length;
-    h += '<button class="btn solid wmfill" onclick="fillWalmart()">Fill my Walmart cart · ' + wmList.length + '</button>' +
-      '<p class="hint">Opens Walmart with these in your cart. Nothing is ordered: you check it and check out yourself.' +
-      (wmMiss ? ' ' + wmMiss + ' never bought on Walmart, add ' + (wmMiss > 1 ? 'those' : 'that one') + ' by hand.' : '') + '</p>';
+    h += '<button class="btn solid wmfill" onclick="fillWalmart()"' + (jobLive ? ' disabled' : '') + '>' +
+      (jobLive ? 'Your Mac is filling the cart…' : 'Fill my Walmart cart · ' + wmList.length) + '</button>';
+    h += '<p class="hint">' + wmStatus(job) +
+      (wmMiss && !jobLive ? ' ' + wmMiss + ' never bought on Walmart, add ' + (wmMiss > 1 ? 'those' : 'that one') + ' by hand.' : '') + '</p>';
   }
-  if (!on.length) h += '<div class="card"><div class="empty">Nothing on the list. Add what you\'re out of above.</div></div>';
+
   // Things a person put on the list sit together at the top; whatever added itself
   // stays grouped by store below. Each section's Copy copies what that section shows.
   var hand = on.filter(function (x) { return x.data.listedBy !== 'Auto'; })
@@ -544,13 +548,30 @@ function deny(id) {
 // walmart.com orders, so only things bought there before can go in. Nothing is
 // ordered; it only fills the cart. Unofficial (affiliate) link, may break.
 function forWalmart(x) { var st = x.data.store; return !st || st === 'Walmart' || st === 'Other'; }
+// The Mac (tools/walmart-orders/walmart_fill.py, every minute) watches this row,
+// fills the cart in Andrew's signed-in Chrome, and writes back what happened.
 function fillWalmart() {
-  var g = all('item').filter(function (x) { return x.data.onList && forWalmart(x); });
-  var ok = g.filter(function (x) { return x.data.wm; }), miss = g.filter(function (x) { return !x.data.wm; });
-  if (!ok.length) { toast('None of these have been bought on Walmart before, so add them there by hand.'); return; }
-  var url = 'https://affil.walmart.com/cart/addToCart?items=' + ok.map(function (x) { return encodeURIComponent(x.data.wm) + '|1'; }).join(',');
-  if (miss.length) alert(ok.length + ' going in your cart. Not bought on Walmart before, add by hand: ' + miss.map(function (x) { return x.data.name; }).join(', ') + '.');
-  location.href = url;
+  var g = all('item').filter(function (x) { return x.data.onList && forWalmart(x) && x.data.wm; });
+  if (!g.length) { toast('None of these have been bought on Walmart before, so add them there by hand.'); return; }
+  put('meta-wmfill', 'meta', { status: 'waiting', by: me || '?', at: Date.now(),
+    items: g.map(function (x) { return { wm: String(x.data.wm), name: x.data.name }; }) });
+  toast('Sent to your Mac. It fills the cart within a minute or two.');
+  render();
+}
+function wmStatus(j) {
+  var base = 'Your Mac puts these in your Walmart cart. Nothing is ordered: you check it and check out yourself.';
+  if (!j) return base;
+  var ago = Date.now() - (j.doneAt || j.at);
+  if (j.status === 'waiting') return ago > 10 * 60000 ? 'Still waiting for your Mac. It has to be on and awake, with Chrome signed in to Walmart.' : 'Waiting for your Mac to pick it up…';
+  if (j.status === 'working') return 'Your Mac is adding them now…';
+  if (ago > 24 * 3600 * 1000) return base;
+  var t = new Date(j.doneAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+  if (j.status === 'failed') return '⚠️ The Mac couldn\'t fill it at ' + t + ': ' + esc(j.err || 'unknown') + '. Tap to try again.';
+  var parts = [(j.added || []).length + ' added'];
+  if ((j.already || []).length) parts.push((j.already || []).length + ' were already in the cart');
+  var s = '✅ Done at ' + t + ': ' + parts.join(', ') + '.';
+  if ((j.missing || []).length) s += ' Didn\'t go in, add by hand: ' + (j.missing || []).map(esc).join(', ') + '.';
+  return s;
 }
 
 function copyStore(s, hand) {

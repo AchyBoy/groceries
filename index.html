@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="x-groc-version" content="v1.10">
+<meta name="x-groc-version" content="v1.11">
 <meta name="robots" content="noindex">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Groceries">
@@ -358,8 +358,25 @@ function renderList() {
 
   h += '<h2>On the list · ' + on.length + '</h2><p class="what">What to get. Tap the circle when you have it. Copy puts a store\'s list on your clipboard.</p>';
   if (!on.length) h += '<div class="card"><div class="empty">Nothing on the list. Add what you\'re out of above.</div></div>';
+  // Things a person put on the list sit together at the top; whatever added itself
+  // stays grouped by store below. Each section's Copy copies what that section shows.
+  var hand = on.filter(function (x) { return x.data.listedBy !== 'Auto'; })
+    .sort(function (a, b) { return a.data.name.localeCompare(b.data.name); });
+  if (hand.length) {
+    h += '<h2>Added by hand · ' + hand.length + '<span class="r"><button class="btn sm" onclick="copyStore(\'\', true)">Copy</button></span></h2><div class="card">' +
+      hand.map(function (x) {
+        var d = x.data, sub = [];
+        if (d.note) sub.push(esc(d.note));
+        if (d.listedBy) sub.push(esc(d.listedBy));
+        if (d.store) sub.push(esc(d.store));
+        return '<div class="row"><button class="chk" onclick="bought(\'' + x.id + '\')" aria-label="Got it"></button>' +
+          '<div class="main" onclick="openItem(\'' + x.id + '\')"><div class="nm">' + esc(d.name) + '</div>' +
+          (sub.length ? '<div class="sb">' + sub.join(' · ') + '</div>' : '') + '</div></div>';
+      }).join('') + '</div>';
+  }
+  var autoOn = on.filter(function (x) { return x.data.listedBy === 'Auto'; });
   STORES.forEach(function (s) {
-    var g = on.filter(function (x) { return (STORES.indexOf(x.data.store) < 0 ? 'Other' : x.data.store) === s; })
+    var g = autoOn.filter(function (x) { return (STORES.indexOf(x.data.store) < 0 ? 'Other' : x.data.store) === s; })
       .sort(function (a, b) { return a.data.name.localeCompare(b.data.name); });
     if (!g.length) return;
     h += '<h2>' + esc(s) + ' · ' + g.length + '<span class="r"><button class="btn sm" onclick="copyStore(\'' + esc(s).replace(/'/g, "\\'") + '\')">Copy</button></span></h2><div class="card">' +
@@ -515,13 +532,17 @@ function deny(id) {
   var d = clone(x.data); d.requested = null; logIt(d, 'no');
   put(id, 'item', d); render();
 }
-function copyStore(s) {
-  var lines = all('item').filter(function (x) { return x.data.onList && (STORES.indexOf(x.data.store) < 0 ? 'Other' : x.data.store) === s; })
+function copyStore(s, hand) {
+  var lines = all('item').filter(function (x) {
+    if (!x.data.onList) return false;
+    if (hand) return x.data.listedBy !== 'Auto';
+    return x.data.listedBy === 'Auto' && (STORES.indexOf(x.data.store) < 0 ? 'Other' : x.data.store) === s;
+  })
     .sort(function (a, b) { return a.data.name.localeCompare(b.data.name); })
     .map(function (x) { return x.data.name + (x.data.note ? ' (' + x.data.note + ')' : ''); });
   var t = lines.join('\n');
   (navigator.clipboard ? navigator.clipboard.writeText(t) : Promise.reject()).then(function () {
-    toast('Copied ' + lines.length + ' for ' + s + '.');
+    toast('Copied ' + lines.length + (hand ? ' added by hand.' : ' for ' + s + '.'));
   }).catch(function () { prompt('Copy this:', t); });
 }
 
